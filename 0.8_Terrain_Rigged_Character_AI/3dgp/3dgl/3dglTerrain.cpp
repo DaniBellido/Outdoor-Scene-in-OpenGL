@@ -25,41 +25,24 @@ float C3dglTerrain::getHeight(int x, int z)
 	return m_heights[x * m_nSizeZ + z];
 }
 
-	// compute the area of a triangle using Heron's formula
-	float triarea(float a, float b, float c)
+	glm::vec3 barycentric(glm::vec2 p, glm::vec2 a, glm::vec2 b, glm::vec2 c)
 	{
-		float s = (a + b + c)/2.0f;
-		float area=sqrt(fabs(s*(s-a)*(s-b)*(s-c)));
-		return area;     
-	}
+		auto v0 = b - a;
+		auto v1 = c - a;
+		auto v2 = p - a;
 
-	// compute the distance between two 
-	float dist(float x0, float y0, float x1, float y1)
-	{
-		float a = x1 - x0;	  
-		float b = y1 - y0;
-		return sqrt(a*a + b*b);
-	}
+		float d00 = glm::dot(v0, v0);
+		float d01 = glm::dot(v0, v1);
+		float d11 = glm::dot(v1, v1);
+		float d20 = glm::dot(v2, v0);
+		float d21 = glm::dot(v2, v1);
+		float denom = d00 * d11 - d01 * d01;
 
-	// barycentric interpolation of (x, y) within a triangle (x0, y0), (x1, y1), (x2, y2) with values v0, v1, v2
-	float barycent(float x, float y, float x0, float y0, float v0, float x1, float y1, float v1, float x2, float y2, float v2)
-	{
-		// compute the area of the big triangle
-		float a = dist(x0, y0, x1, y1);
-		float b = dist(x1, y1, x2, y2);
-		float c = dist(x2, y2, x0, y0);
-		float totalarea = triarea(a, b, c);
+		float v = (d11 * d20 - d01 * d21) / denom;
+		float w = (d00 * d21 - d01 * d20) / denom;
+		float u = 1.0f - v - w;
 
-		// compute the distances from the outer vertices to the inner vertex
-		float length0 = dist(x0, y0, x, y);
-		float length1 = dist(x1, y1, x, y);
-		float length2 = dist(x2, y2, x, y);
-
-		float f0 = triarea(b, length1, length2) / totalarea;
-		float f1 = triarea(c, length0, length2) / totalarea;
-		float f2 = triarea(a, length0, length1) / totalarea;
-
-		return v0 * f0 + v1 * f1 + v2 * f2;
+		return glm::vec3(u, v, w);
 	}
 
 float C3dglTerrain::getInterpolatedHeight(float fx, float fz)
@@ -69,12 +52,9 @@ float C3dglTerrain::getInterpolatedHeight(float fx, float fz)
 	fx -= x;
 	fz -= z;
 	if (fx + fz < 1)
-		return barycent(fx, fz, 0, 0, getHeight(x, z), 0, 1, getHeight(x, z + 1), 1, 0, getHeight(x + 1, z));
+		return glm::dot(barycentric(glm::vec2(fx, fz), glm::vec2(0, 0), glm::vec2(0, 1), glm::vec2(1, 0)), glm::vec3(getHeight(x, z), getHeight(x, z + 1), getHeight(x + 1, z)));
 	else
-		return barycent(fx, fz, 0, 1, getHeight(x, z + 1), 1, 0, getHeight(x + 1, z), 1, 1, getHeight(x + 1, z + 1));
-
-
-	return m_heights[z * m_nSizeX + x];
+		return glm::dot(barycentric(glm::vec2(fx, fz), glm::vec2(0, 1), glm::vec2(1, 0), glm::vec2(1, 1)), glm::vec3(getHeight(x, z + 1), getHeight(x + 1, z), getHeight(x + 1, z + 1)));
 }
 
 bool C3dglTerrain::loadHeightmap(const std::string filename, float scaleHeight)
@@ -125,61 +105,67 @@ bool C3dglTerrain::loadHeightmap(const std::string filename, float scaleHeight)
 //		}
 
 	// Collect Vertices, Normals and Lines (the latter - for the visualisation of normal vectors)
-    vector<float> vertices;
-    vector<float> normals;
-    vector<float> texCoords;
-	vector<float> lines;
-	int minx = -m_nSizeX/2;
-	int minz = -m_nSizeZ/2;
+	size_t size = m_nSizeX * m_nSizeZ;
+	float* vertices = new float[size * 3], *pVertex = vertices;
+	float* normals = new float[size * 3], * pNormal = normals;
+	float* texCoords = new float[size * 2], * pTexCoord = texCoords;
+	float* lines = new float[size *  6], *pLine = lines;
+	int minx = -m_nSizeX / 2;
+	int minz = -m_nSizeZ / 2;
 	for (int x = minx; x < minx + m_nSizeX; x++)
 		for (int z = minz; z < minz + m_nSizeZ; z++)
 		{
-			vertices.push_back((float)x);
-			vertices.push_back(getHeight(x, z));
-			vertices.push_back((float)z);
+			*pVertex++ = (float)x;
+			*pVertex++ = getHeight(x, z);
+			*pVertex++ = (float)z;
 
 			int x0 = (x == minx) ? x : x - 1;
-			int x1 = (x == minx + m_nSizeX-1) ? x : x + 1;
+			int x1 = (x == minx + m_nSizeX - 1) ? x : x + 1;
 			int z0 = (z == minz) ? z : z - 1;
-			int z1 = (z == minz + m_nSizeZ-1) ? z : z + 1;
+			int z1 = (z == minz + m_nSizeZ - 1) ? z : z + 1;
 
 			float dy_x = getHeight(x1, z) - getHeight(x0, z);
 			float dy_z = getHeight(x, z1) - getHeight(x, z0);
 			float m = sqrt(dy_x * dy_x + 4 + dy_z * dy_z);
-			normals.push_back(-dy_x / m);
-			normals.push_back(2 / m);
-			normals.push_back(-dy_z / m);
+			*pNormal++ = -dy_x / m;
+			*pNormal++ = 2 / m;
+			*pNormal++ = -dy_z / m;
 
-			texCoords.push_back((float)x / 2.f);
-			texCoords.push_back((float)z / 2.f);
+			*pTexCoord++ = (float)x / 2.f;
+			*pTexCoord++ = (float)z / 2.f;
 
-			lines.push_back((float)x);
-			lines.push_back(getHeight(x, z));
-			lines.push_back((float)z);
-			lines.push_back(x - dy_x / m);
-			lines.push_back(getHeight(x, z) + 2 / m);
-			lines.push_back(z - dy_z / m);
+			*pLine++ = (float)x;
+			*pLine++ = getHeight(x, z);
+			*pLine++ = (float)z;
+			*pLine++ = x - dy_x / m;
+			*pLine++ = getHeight(x, z) + 2 / m;
+			*pLine++ = z - dy_z / m;
 		}
 
 	// Prepare Vertex Buffer
-    glGenBuffers(1, &m_vertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
+	glGenBuffers(1, &m_vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * size * 3, &vertices[0], GL_STATIC_DRAW);
 
 	// Prepare Normal Buffer
-    glGenBuffers(1, &m_normalBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m_normalBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * normals.size(), &normals[0], GL_STATIC_DRAW);
+	glGenBuffers(1, &m_normalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, m_normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * size * 3, &normals[0], GL_STATIC_DRAW);
 
 	// Prepare TexCoords Buffer
 	glGenBuffers(1, &m_texCoordBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, m_texCoordBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * texCoords.size(), &texCoords[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * size * 2, &texCoords[0], GL_STATIC_DRAW);
 
 	// Prepare Vertex Buffer for Visualisation of Normal Vectors
-    glGenBuffers(1, &m_linesBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, m_linesBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * lines.size(), &lines[0], GL_STATIC_DRAW);
+	glGenBuffers(1, &m_linesBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, m_linesBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * size * 6, &lines[0], GL_STATIC_DRAW);
+
+	delete[] vertices;
+	delete[] normals;
+	delete[] texCoords;
+	delete[] lines;
 
 	// Generate Indices
 	
@@ -194,23 +180,108 @@ bool C3dglTerrain::loadHeightmap(const std::string filename, float scaleHeight)
      ((z+1)*w+x)*----* ((z+1)*w+x+1)
     */
     //Generate the triangle indices
-	vector<unsigned int> indices;
+
+	size_t indicesSize = (m_nSizeZ - 1) * (m_nSizeX - 1);
+	unsigned int *indices = new unsigned int[indicesSize * 6], *pIndice = indices;
 	for (int z = 0; z < m_nSizeZ - 1; ++z)
 		for (int x = 0; x < m_nSizeX - 1; ++x)
 		{
-			indices.push_back(x * m_nSizeZ + z); // current point
-			indices.push_back(x * m_nSizeZ + z + 1); // next row
-			indices.push_back((x + 1) * m_nSizeZ + z); // same row, next col
+			*pIndice++ = x * m_nSizeZ + z; // current point
+			*pIndice++ = x * m_nSizeZ + z + 1; // next row
+			*pIndice++ = (x + 1) * m_nSizeZ + z; // same row, next col
 
-			indices.push_back(x * m_nSizeZ + z + 1); // next row
-			indices.push_back((x + 1) * m_nSizeZ + z + 1); //next row, next col
-			indices.push_back((x + 1) * m_nSizeZ + z); // same row, next col
+			*pIndice++ = x * m_nSizeZ + z + 1; // next row
+			*pIndice++ = (x + 1) * m_nSizeZ + z + 1; //next row, next col
+			*pIndice++ = (x + 1) * m_nSizeZ + z; // same row, next col
 		}
 
-	// Prepare Index Buffer
-    glGenBuffers(1, &m_indexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), &indices[0], GL_STATIC_DRAW);
+	glGenBuffers(1, &m_indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indicesSize * 6, indices, GL_STATIC_DRAW);
+
+	delete[] indices;
+
+
+	//// Collect Vertices, Normals and Lines (the latter - for the visualisation of normal vectors)
+	 //   vector<float> vertices;
+	 //   vector<float> normals;
+	 //   vector<float> texCoords;
+		//vector<float> lines;
+		//vertices.reserve(m_nSizeX * m_nSizeZ * 3);
+		//normals.reserve(m_nSizeX * m_nSizeZ * 3);
+		//texCoords.reserve(m_nSizeX * m_nSizeZ * 2);
+		//lines.reserve(m_nSizeX * m_nSizeZ * 6);
+		//int minx = -m_nSizeX/2;
+		//int minz = -m_nSizeZ/2;
+		//for (int x = minx; x < minx + m_nSizeX; x++)
+		//	for (int z = minz; z < minz + m_nSizeZ; z++)
+		//	{
+		//		vertices.push_back((float)x);
+		//		vertices.push_back(getHeight(x, z));
+		//		vertices.push_back((float)z);
+
+		//		int x0 = (x == minx) ? x : x - 1;
+		//		int x1 = (x == minx + m_nSizeX-1) ? x : x + 1;
+		//		int z0 = (z == minz) ? z : z - 1;
+		//		int z1 = (z == minz + m_nSizeZ-1) ? z : z + 1;
+
+		//		float dy_x = getHeight(x1, z) - getHeight(x0, z);
+		//		float dy_z = getHeight(x, z1) - getHeight(x, z0);
+		//		float m = sqrt(dy_x * dy_x + 4 + dy_z * dy_z);
+		//		normals.push_back(-dy_x / m);
+		//		normals.push_back(2 / m);
+		//		normals.push_back(-dy_z / m);
+
+		//		texCoords.push_back((float)x / 2.f);
+		//		texCoords.push_back((float)z / 2.f);
+
+		//		lines.push_back((float)x);
+		//		lines.push_back(getHeight(x, z));
+		//		lines.push_back((float)z);
+		//		lines.push_back(x - dy_x / m);
+		//		lines.push_back(getHeight(x, z) + 2 / m);
+		//		lines.push_back(z - dy_z / m);
+		//	}
+
+		//// Prepare Vertex Buffer
+	 //   glGenBuffers(1, &m_vertexBuffer);
+	 //   glBindBuffer(GL_ARRAY_BUFFER, m_vertexBuffer);
+	 //   glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertices.size(), &vertices[0], GL_STATIC_DRAW);
+
+		//// Prepare Normal Buffer
+	 //   glGenBuffers(1, &m_normalBuffer);
+	 //   glBindBuffer(GL_ARRAY_BUFFER, m_normalBuffer);
+	 //   glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * normals.size(), &normals[0], GL_STATIC_DRAW);
+
+		//// Prepare TexCoords Buffer
+		//glGenBuffers(1, &m_texCoordBuffer);
+		//glBindBuffer(GL_ARRAY_BUFFER, m_texCoordBuffer);
+		//glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * texCoords.size(), &texCoords[0], GL_STATIC_DRAW);
+
+		//// Prepare Vertex Buffer for Visualisation of Normal Vectors
+	 //   glGenBuffers(1, &m_linesBuffer);
+	 //   glBindBuffer(GL_ARRAY_BUFFER, m_linesBuffer);
+	 //   glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * lines.size(), &lines[0], GL_STATIC_DRAW);
+		
+	 
+	 //vector<unsigned int> indices;
+	//indices.reserve((m_nSizeZ - 1) * (m_nSizeX - 1) * 6);
+	//for (int z = 0; z < m_nSizeZ - 1; ++z)
+	//	for (int x = 0; x < m_nSizeX - 1; ++x)
+	//	{
+	//		indices.push_back(x * m_nSizeZ + z); // current point
+	//		indices.push_back(x * m_nSizeZ + z + 1); // next row
+	//		indices.push_back((x + 1) * m_nSizeZ + z); // same row, next col
+
+	//		indices.push_back(x * m_nSizeZ + z + 1); // next row
+	//		indices.push_back((x + 1) * m_nSizeZ + z + 1); //next row, next col
+	//		indices.push_back((x + 1) * m_nSizeZ + z); // same row, next col
+	//	}
+
+	//// Prepare Index Buffer
+ //   glGenBuffers(1, &m_indexBuffer);
+ //   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_indexBuffer);
+ //   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), &indices[0], GL_STATIC_DRAW);
 
     return true;
 }

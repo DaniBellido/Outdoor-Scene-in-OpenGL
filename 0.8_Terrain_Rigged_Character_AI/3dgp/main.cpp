@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include "GL/glew.h"
 #include "GL/3dgl.h"
 #include "GL/glut.h"
@@ -16,19 +16,25 @@ using namespace glm;
 
 bool fogOn;
 
+
 C3dglProgram Program;
+C3dglProgram ProgramAnim;
 
 // 3D Models
 C3dglTerrain terrain, terrain2, lava;
 C3dglSkyBox skybox;
 C3dglModel test;
+C3dglModel player;
 
 //textures
 C3dglBitmap grass;
 C3dglBitmap bm_terrainTexColor;
 C3dglBitmap bm_terrainTexNormal;
 
-GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain;
+C3dglBitmap bm_charTexColor;
+C3dglBitmap bm_charTexNormal;
+
+GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar;
 
 
 
@@ -46,12 +52,17 @@ bool init()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);	// this is the default one; try GL_LINE!
 
 	//Initialise Shaders
+	C3dglShader AnimVertexShader;
 	C3dglShader VertexShader;
 	C3dglShader FragmentShader;
 
 	if (!VertexShader.Create(GL_VERTEX_SHADER))return false;
 	if (!VertexShader.LoadFromFile("basic.vert"))return false;
 	if (!VertexShader.Compile())return false;
+
+	//if (!AnimVertexShader.Create(GL_VERTEX_SHADER))return false;
+	//if (!AnimVertexShader.LoadFromFile("anim.vert"))return false;
+	//if (!AnimVertexShader.Compile())return false;
 
 	if (!FragmentShader.Create(GL_FRAGMENT_SHADER))return false;
 	if (!FragmentShader.LoadFromFile("basic.frag"))return false;
@@ -62,6 +73,11 @@ bool init()
 	if (!Program.Attach(FragmentShader))return false;
 	if (!Program.Link())return false;
 	if (!Program.Use(true))return false;
+
+	/*if (!ProgramAnim.Create())return false;
+	if (!ProgramAnim.Attach(AnimVertexShader))return false;
+	if (!ProgramAnim.Link())return false;
+	if (!ProgramAnim.Use(true))return false;*/
 
 	::glutSetVertexAttribCoord3(Program.GetAttribLocation("aVertex"));
 	::glutSetVertexAttribNormal(Program.GetAttribLocation("aNormal"));
@@ -100,12 +116,20 @@ bool init()
 	if (!terrain2.loadHeightmap("models\\try_this2.png", 90.0f)) return false; //originally set to 10
 	if (!lava.loadHeightmap("models\\try_this3.png", 90.0f)) return false; //lava
 
-	if (!test.load("models\\car.obj")) return false;
-
+	//if (!test.load("models\\car.obj")) return false;
+	if (!player.load("models\\Standard Walk.dae")) return false;
+	player.loadAnimations();
 
 	//loading textures
 	grass.Load("models\\TextureGrass\\grass.png", GL_RGBA);
 	if (!grass.GetBits()) return false;
+
+	bm_charTexColor.Load("models\\textures_anim\\Guard_02__diffuse.png", GL_RGBA);
+	if (!bm_charTexColor.GetBits()) return false;
+
+	bm_charTexNormal.Load("models\\textures_anim\\Guard_02__normal.png", GL_RGBA);
+	if (!bm_charTexNormal.GetBits()) return false;
+	
 
 	bm_terrainTexNormal.Load("models\\TextureRock\\TexturesCom_Rock_CliffVolcanic_1K_normal.png", GL_RGBA);
 	if (!bm_terrainTexNormal.GetBits()) return false;
@@ -116,6 +140,7 @@ bool init()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, grass.GetWidth(), grass.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, grass.GetBits());
+	
 
 	// none (simple-white) texture
 	glGenTextures(1, &idTexNone);
@@ -129,23 +154,37 @@ bool init()
 	Program.SendUniform("texture0", 0);
 	Program.SendUniform("textureNormal", 1);
 
-
 	///// NORMAL MAPPING TEXTURE/////
 	glActiveTexture(GL_TEXTURE1);
 	glGenTextures(1, &idNormalTerrain);
 	glBindTexture(GL_TEXTURE_2D, idNormalTerrain);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_terrainTexNormal.GetWidth(), bm_terrainTexNormal.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, bm_terrainTexNormal.GetBits());
+	glGenerateMipmap(GL_TEXTURE_2D);
 
+	glActiveTexture(GL_TEXTURE1);
+	glGenTextures(1, &idNormalChar);
+	glBindTexture(GL_TEXTURE_2D, idNormalChar);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_charTexNormal.GetWidth(), bm_charTexNormal.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_charTexNormal.GetBits());
+	glGenerateMipmap(GL_TEXTURE_2D);
 
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &idTexChar);
+	glBindTexture(GL_TEXTURE_2D, idTexChar);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_charTexColor.GetWidth(), bm_charTexColor.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_charTexColor.GetBits());
 
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = rotate(mat4(1.f), radians(angleTilt), vec3(1.f, 0.f, 0.f));
 	matrixView *= lookAt(
-		vec3(0.0, 0.0, 0.0), //position
-		vec3(4.0, 0.0, 0.0),  //look at
+		vec3(0.0, 10.0, 30.0), //position
+		vec3(4.0, 10.0, 30.0),  //look at
 		vec3(0.0, 1.0, 0.0)); //direction, where's the top of the object
+
 
 	// setup the screen background colour
 	glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
@@ -185,6 +224,7 @@ void renderScene(mat4 &matrixView, float time)
 		Program.SendUniform("lightAmbient.color", 1.0, 1.0, 1.0);
 		Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
 		Program.SendUniform("materialDiffuse", 0.0, 0.0, 0.0);
+		Program.SendUniform("materialSpecular", 0.0, 0.0, 0.0);
 		m = matrixView;
 		skybox.render(m);
 		Program.SendUniform("lightAmbient.color", 0.2, 0.2, 0.2);
@@ -201,8 +241,9 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("materialDiffuse", 0.5, 0.2, 0.0);
 	Program.SendUniform("materialSpecular", 0.7, 0.2, 0.2);
 	m = translate(matrixView, vec3(0, 0, 0));
+	//test.render(m); //rendering another object to check if normal map is working
 	terrain.render(m);
-	//test.render(m); rendering another object to check if normal map is working
+	
 	Program.SendUniform("useNormalMap", false);
 
 
@@ -225,13 +266,12 @@ void renderScene(mat4 &matrixView, float time)
 	//lava.render(m);
 
 	//render sun
-
 	//concept to develop
 	//float r = 100;
 	//xB = pSprite->GetX() + cos(DEG2RAD(angle)) * r;
 	//yB = pSprite->GetY() + sin(DEG2RAD(angle)) * r;
 	////angle = angle + 1;
-	//angle = angle + 1;
+	//angle = angle + 1;  ∞
 
 	Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
 	Program.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
@@ -242,6 +282,25 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("matrixModelView", m);
 	glutSolidSphere(60, 32, 32);
 	Program.SendUniform("lightPoint.matrix", m);
+
+
+	//render player 
+	// calculate and send bone transforms
+	std::vector<float> transforms;
+	player.getAnimData(0, time, transforms);
+	Program.SendUniformMatrixv("bones", (float*)&transforms[0], transforms.size() / 16);
+	Program.SendUniform("materialEmissive", 0.0, 0.0, 0.0);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, idNormalChar);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, idTexChar);
+	Program.SendUniform("useNormalMap", true);
+	m = matrixView;
+	m = translate(m, vec3(-10, 25, 0));
+	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
+	player.render(m);
+	Program.SendUniform("useNormalMap", false);
+	
 
 }
 
@@ -407,7 +466,7 @@ int main(int argc, char **argv)
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(100, 100);
 	glutInitWindowSize(800, 600);
-	glutCreateWindow("CI5520 3D Graphics Programming");
+	glutCreateWindow("Level_2 - Outdoor Scene");
 
 	// init glew
 	GLenum err = glewInit();
@@ -432,7 +491,7 @@ int main(int argc, char **argv)
 	cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
 	cout << "Version: " << glGetString(GL_VERSION) << endl;
 
-	// init light and everything � not a GLUT or callback function!
+	// init light and everything – not a GLUT or callback function!
 	if (!init())
 	{
 		cerr << "Application failed to initialise" << endl;

@@ -108,6 +108,7 @@
     <ClInclude Include="GL\glut.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="anim.vert" />
     <None Include="basic.frag" />
     <None Include="basic.vert" />
   </ItemGroup>

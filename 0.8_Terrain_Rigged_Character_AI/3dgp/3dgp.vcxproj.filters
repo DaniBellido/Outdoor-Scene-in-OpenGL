@@ -88,5 +88,8 @@
     <None Include="basic.vert">
       <Filter>3dgl</Filter>
     </None>
+    <None Include="anim.vert">
+      <Filter>3dgl</Filter>
+    </None>
   </ItemGroup>
 </Project>

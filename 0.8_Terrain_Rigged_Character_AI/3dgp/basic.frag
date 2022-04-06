@@ -72,7 +72,6 @@ void main(void)
 	 else
 		normalNew = normal;
 	
-	
 	outColor = color;
 	outColor += PointLight(lightPoint);
 

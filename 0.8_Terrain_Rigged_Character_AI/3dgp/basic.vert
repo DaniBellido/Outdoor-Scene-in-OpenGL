@@ -1,5 +1,9 @@
 // VERTEX SHADER
 #version 330
+//Bone Transform
+#define MAX_BONES 100
+
+uniform mat4 bones[MAX_BONES];
 
 // Matrices
 uniform mat4 matrixProjection;
@@ -20,6 +24,8 @@ out vec2 texCoord0;  //texture
 in vec3 aTangent;   //normal
 in vec3 aBiTangent; //normal
 out mat3 matrixTangent; //normal
+in ivec4 aBoneId;
+in vec4 aBoneWeight;
 
 out vec4 color;
 out vec4 position;
@@ -84,12 +90,22 @@ vec4 EmissiveLight(EMISSIVE light)
 
 void main(void) 
 {
+	mat4 matrixBone;
+	if (aBoneWeight[0] == 0.0)
+		matrixBone = mat4(1);
+	else
+		matrixBone = (bones[aBoneId[0]] * aBoneWeight[0] +
+					  bones[aBoneId[1]] * aBoneWeight[1] +
+					  bones[aBoneId[2]] * aBoneWeight[2] +
+					  bones[aBoneId[3]] * aBoneWeight[3]);
+
 	// calculate position
-	position = matrixModelView * vec4(aVertex, 1.0);
+	position = matrixModelView * matrixBone *vec4(aVertex, 1.0);
 	gl_Position = matrixProjection * position;
-	
-	//calculate normal
-	normal = normalize(mat3(matrixModelView) * aNormal);
+
+	// calculate normal
+	normal = normalize(mat3(matrixModelView) * mat3(matrixBone) *aNormal);
+
 
 	// calculate light
 	color = vec4(0, 0, 0, 1);
@@ -101,6 +117,7 @@ void main(void)
 	// calculate texture coordinate
 	texCoord0 = 1 * aTexCoord; //texture
 
+	vec3 aTangent = vec3(1,0,0);
 	vec3 aBiTangent = cross(aNormal, aTangent);
 	vec3 tangent = normalize(mat3(matrixModelView) * aTangent);
 	tangent = normalize(tangent - dot(tangent, normal) * normal);	// Gramm-Schmidt process

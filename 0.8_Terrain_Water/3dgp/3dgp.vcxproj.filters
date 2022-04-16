@@ -91,5 +91,17 @@
     <None Include="anim.vert">
       <Filter>3dgl</Filter>
     </None>
+    <None Include="shaders\terrain.frag">
+      <Filter>3dgl</Filter>
+    </None>
+    <None Include="shaders\terrain.vert">
+      <Filter>3dgl</Filter>
+    </None>
+    <None Include="shaders\water.frag">
+      <Filter>3dgl</Filter>
+    </None>
+    <None Include="shaders\water.vert">
+      <Filter>3dgl</Filter>
+    </None>
   </ItemGroup>
 </Project>

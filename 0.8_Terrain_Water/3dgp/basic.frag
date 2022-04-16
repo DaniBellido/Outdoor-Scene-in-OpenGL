@@ -22,6 +22,9 @@ uniform vec3 materialDiffuse;
 uniform vec3 materialSpecular;
 uniform float shininess;
 
+// Debug Text - Do Not Change!
+uniform int Text = 0;
+
 // View Matrix
 uniform mat4 matrixView;
 
@@ -78,6 +81,8 @@ void main(void)
 	outColor *= texture(texture0, texCoord0); //texture
 	//outColor = vec4(normal * .5 + .5, 1.0);
 	outColor = mix(vec4(fogColour, 1), outColor, fogFactor);
+		// Debug Text - Do Not Change!
+	if (Text == 1) outColor = vec4(1, 0.8, 0, 1);
 
 	
 }

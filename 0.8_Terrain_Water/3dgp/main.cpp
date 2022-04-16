@@ -15,26 +15,28 @@ using namespace _3dgl;
 using namespace glm;
 
 bool fogOn;
-
+float waterLevel = 10.6f;
 
 C3dglProgram Program;
+C3dglProgram ProgramWater;
+C3dglProgram ProgramTerrain;
 C3dglProgram ProgramAnim;
 
 // 3D Models
-C3dglTerrain terrain, terrain2, lava;
+C3dglTerrain terrain, terrain2, water;
 C3dglSkyBox skybox;
 C3dglModel test;
 C3dglModel player;
 
 //textures
-C3dglBitmap grass;
+C3dglBitmap grass, bm_pebbles, bm_land;
 C3dglBitmap bm_terrainTexColor;
 C3dglBitmap bm_terrainTexNormal;
 
 C3dglBitmap bm_charTexColor;
 C3dglBitmap bm_charTexNormal;
 
-GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar;
+GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand;
 
 
 
@@ -52,9 +54,13 @@ bool init()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);	// this is the default one; try GL_LINE!
 
 	//Initialise Shaders
-	C3dglShader AnimVertexShader;
+	//C3dglShader AnimVertexShader;
 	C3dglShader VertexShader;
 	C3dglShader FragmentShader;
+	C3dglShader WaterVertexShader;
+	C3dglShader WaterFragmentShader;
+	C3dglShader TerrainVertexShader;
+	C3dglShader TerrainFragmentShader;
 
 	if (!VertexShader.Create(GL_VERTEX_SHADER))return false;
 	if (!VertexShader.LoadFromFile("basic.vert"))return false;
@@ -79,14 +85,67 @@ bool init()
 	if (!ProgramAnim.Link())return false;
 	if (!ProgramAnim.Use(true))return false;*/
 
+	if (!WaterVertexShader.Create(GL_VERTEX_SHADER)) return false;
+	if (!WaterVertexShader.LoadFromFile("shaders/water.vert")) return false;
+	if (!WaterVertexShader.Compile()) return false;
+
+	if (!WaterFragmentShader.Create(GL_FRAGMENT_SHADER)) return false;
+	if (!WaterFragmentShader.LoadFromFile("shaders/water.frag")) return false;
+	if (!WaterFragmentShader.Compile()) return false;
+
+	if (!ProgramWater.Create()) return false;
+	if (!ProgramWater.Attach(WaterVertexShader)) return false;
+	if (!ProgramWater.Attach(WaterFragmentShader)) return false;
+	if (!ProgramWater.Link()) return false;
+	if (!ProgramWater.Use(true)) return false;
+
+	if (!TerrainVertexShader.Create(GL_VERTEX_SHADER)) return false;
+	if (!TerrainVertexShader.LoadFromFile("shaders/terrain.vert")) return false;
+	if (!TerrainVertexShader.Compile()) return false;
+
+	if (!TerrainFragmentShader.Create(GL_FRAGMENT_SHADER)) return false;
+	if (!TerrainFragmentShader.LoadFromFile("shaders/terrain.frag")) return false;
+	if (!TerrainFragmentShader.Compile()) return false;
+
+	if (!ProgramTerrain.Create()) return false;
+	if (!ProgramTerrain.Attach(TerrainVertexShader)) return false;
+	if (!ProgramTerrain.Attach(TerrainFragmentShader)) return false;
+	if (!ProgramTerrain.Link()) return false;
+	if (!ProgramTerrain.Use(true)) return false;
+
 	::glutSetVertexAttribCoord3(Program.GetAttribLocation("aVertex"));
 	::glutSetVertexAttribNormal(Program.GetAttribLocation("aNormal"));
 
+	// setup lights (for basic and terrain programs only, water does not use these lights):
+	ProgramWater.SendUniform("lightAmbient.color", 0.1, 0.1, 0.1);
+	ProgramWater.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
+	ProgramWater.SendUniform("lightDir.diffuse", 1.0, 1.0, 1.0);
+
+	//setup materials (for basic and terrain programs only, water does not use these materials):
+	ProgramWater.SendUniform("materialAmbient", 1.0, 1.0, 1.0);		// full power (note: ambient light is extremely dim)
+	ProgramWater.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
+
+	// setup lights (for basic and terrain programs only, water does not use these lights):
+	ProgramTerrain.SendUniform("lightAmbient.color", 0.1, 0.1, 0.1);
+	ProgramTerrain.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
+	ProgramTerrain.SendUniform("lightDir.diffuse", 1.0, 1.0, 1.0);
+
+	// setup materials (for basic and terrain programs only, water does not use these materials):
+	ProgramTerrain.SendUniform("materialAmbient", 1.0, 1.0, 1.0);		// full power (note: ambient light is extremely dim)
+	ProgramTerrain.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
+
+	//setup the water colours and level
+	ProgramWater.SendUniform("waterColor", 0.2f, 0.22f, 0.02f);
+	ProgramWater.SendUniform("skyColor", 0.2f, 0.6f, 1.f);
+	ProgramTerrain.SendUniform("waterColor", 0.2f, 0.22f, 0.02f);
+	ProgramTerrain.SendUniform("waterLevel", waterLevel);
 
 
 	Program.SendUniform("lightAmbient.color", 0.2, 0.2, 0.2);
 	Program.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
 	Program.SendUniform("lightDir.diffuse", 0.2, 0.2, 0.2);	// dimmed white light
+
+
 
 	//pointlight
 	Program.SendUniform("lightPoint.position", 600.0f, 200.0f, 0.0f);
@@ -101,7 +160,8 @@ bool init()
 	//fog init
 	Program.SendUniform("fogColour", 0.5f, 0.5f, 0.5f); 
 	Program.SendUniform("fogDensity", 0.0f);
-	
+
+
 
 	// load Sky Box     
 	if (!skybox.load("models\\TropicalSunnyDay\\TropicalSunnyDayFront1024.jpg",
@@ -114,9 +174,10 @@ bool init()
 	// load your 3D models here!
 	if (!terrain.loadHeightmap("models\\try_this.png", 100.0f)) return false; //originally set to 10
 	if (!terrain2.loadHeightmap("models\\try_this2.png", 90.0f)) return false; //originally set to 10
-	if (!lava.loadHeightmap("models\\try_this3.png", 90.0f)) return false; //lava
+	//if (!lava.loadHeightmap("models\\try_this3.png", 90.0f)) return false; //lava
+	if (!water.loadHeightmap("models\\watermap.png", 10)) return false;
 
-	//if (!test.load("models\\car.obj")) return false;
+
 	if (!player.load("models\\Standard Walk.dae")) return false;
 	player.loadAnimations();
 
@@ -133,6 +194,12 @@ bool init()
 
 	bm_terrainTexNormal.Load("models\\TextureRock\\TexturesCom_Rock_CliffVolcanic_1K_normal.png", GL_RGBA);
 	if (!bm_terrainTexNormal.GetBits()) return false;
+
+	bm_pebbles.Load("models\\TextureGrass\\pebbles.png", GL_RGBA);
+	if (!bm_pebbles.GetBits()) return false;
+
+	bm_land.Load("models\\TextureGrass\\sand.png", GL_RGBA);
+	if (!bm_land.GetBits()) return false;
 
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idTexGrass);
@@ -155,7 +222,7 @@ bool init()
 	Program.SendUniform("textureNormal", 1);
 
 	///// NORMAL MAPPING TEXTURE/////
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idNormalTerrain);
 	glBindTexture(GL_TEXTURE_2D, idNormalTerrain);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -163,7 +230,7 @@ bool init()
 		GL_UNSIGNED_BYTE, bm_terrainTexNormal.GetBits());
 	glGenerateMipmap(GL_TEXTURE_2D);
 
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idNormalChar);
 	glBindTexture(GL_TEXTURE_2D, idNormalChar);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -171,23 +238,46 @@ bool init()
 		GL_UNSIGNED_BYTE, bm_charTexNormal.GetBits());
 	glGenerateMipmap(GL_TEXTURE_2D);
 
-	glActiveTexture(GL_TEXTURE0);
+	glActiveTexture(GL_TEXTURE1);
 	glGenTextures(1, &idTexChar);
 	glBindTexture(GL_TEXTURE_2D, idTexChar);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_charTexColor.GetWidth(), bm_charTexColor.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, bm_charTexColor.GetBits());
 
+	ProgramTerrain.Use();
+	// setup water multitexturing
+	glActiveTexture(GL_TEXTURE1);
+	glGenTextures(1, &idTexPeb);
+	glBindTexture(GL_TEXTURE_2D, idTexPeb);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_pebbles.GetWidth(), bm_pebbles.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_pebbles.GetBits());
+	ProgramTerrain.SendUniform("textureBed", 1);
+
+	
+	glActiveTexture(GL_TEXTURE2);
+	glGenTextures(1, &idTexLand);
+	glBindTexture(GL_TEXTURE_2D, idTexLand);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_land.GetWidth(), bm_land.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_land.GetBits());
+	ProgramTerrain.SendUniform("textureShore", 2);
+	
+	
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = rotate(mat4(1.f), radians(angleTilt), vec3(1.f, 0.f, 0.f));
 	matrixView *= lookAt(
-		vec3(0.0, 10.0, 30.0), //position
+		vec3(-160.0, 10.0, -220.0), //position
 		vec3(4.0, 10.0, 30.0),  //look at
 		vec3(0.0, 1.0, 0.0)); //direction, where's the top of the object
 
 
 	// setup the screen background colour
 	glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	cout << endl;
 	cout << "Use:" << endl;
@@ -197,6 +287,18 @@ bool init()
 	cout << endl;
 
 	return true;
+}
+
+// Helper function used to display player coordinates (X-Z) on-screen
+void displayCoords(float x, float z)
+{
+	char buf[100];
+	snprintf(buf, sizeof(buf), "(%1.1f, %1.1f)", x, z);
+	Program.SendUniform("Text", 1);
+	glWindowPos2i(10, 10);  // move in 10 pixels from the left and bottom edges
+	for (char* p = buf; *p; p++)
+		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p);
+	Program.SendUniform("Text", 0);
 }
 
 void done()
@@ -231,24 +333,40 @@ void renderScene(mat4 &matrixView, float time)
 
 	}
 
+	// render the water
+	ProgramWater.Use();
+	m = matrixView;
+	m = translate(m, vec3(0, waterLevel, -200));
+	m = scale(m, vec3(0.5f, 1.0f, 0.5f));
+	ProgramWater.SendUniform("matrixModelView", m);
+	water.render(m);
+
+	ProgramTerrain.Use();
+	
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, idNormalTerrain);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
 	Program.SendUniform("useNormalMap", true);
+
+	/*glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, idTexPeb);
+	glBindTexture(GL_TEXTURE_2D, idTexLand);
+	ProgramTerrain.SendUniform("textureBed", 1);
+	ProgramTerrain.SendUniform("textureShore", 2);*/
+
 	// render the terrain
 	Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
 	Program.SendUniform("materialDiffuse", 0.5, 0.2, 0.0);
 	Program.SendUniform("materialSpecular", 0.7, 0.2, 0.2);
 	m = translate(matrixView, vec3(0, 0, 0));
-	//test.render(m); //rendering another object to check if normal map is working
 	terrain.render(m);
 	
 	Program.SendUniform("useNormalMap", false);
 
-
+	
+	// render the terrain2 (green grass textured)
 	glBindTexture(GL_TEXTURE_2D, idTexGrass);
-	// render the terrain2
 	Program.SendUniform("materialAmbient", 0.0, 1.0, 0.0);
 	Program.SendUniform("materialDiffuse", 0.1, 0.8, 0.1);
 	Program.SendUniform("materialSpecular", 0.0, 1.0, 0.1);
@@ -258,21 +376,6 @@ void renderScene(mat4 &matrixView, float time)
 
 	
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
-	//// render lava
-	//Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
-	//Program.SendUniform("materialDiffuse", 1.0, 0.0, 0.0);
-	//Program.SendUniform("materialSpecular", 0.7, 0.0, 0.0);
-	//m = translate(matrixView, vec3(215, 30, 40));
-	//lava.render(m);
-
-	//render sun
-	//concept to develop
-	//float r = 100;
-	//xB = pSprite->GetX() + cos(DEG2RAD(angle)) * r;
-	//yB = pSprite->GetY() + sin(DEG2RAD(angle)) * r;
-	////angle = angle + 1;
-	//angle = angle + 1;  ∞
-
 	Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
 	Program.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
 	Program.SendUniform("materialSpecular", 1.0, 1.0, 1.0);
@@ -296,11 +399,15 @@ void renderScene(mat4 &matrixView, float time)
 	glBindTexture(GL_TEXTURE_2D, idTexChar);
 	Program.SendUniform("useNormalMap", true);
 	m = matrixView;
-	m = translate(m, vec3(-10, 25, 0));
+	m = translate(m, vec3(-202, 20, -250));
 	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
 	player.render(m);
 	Program.SendUniform("useNormalMap", false);
 	
+	// Display debug information: your current coordinates (x, z)
+// These coordinates are available as inv[3].x, inv[3].z
+	mat4 inv = inverse(matrixView);
+	displayCoords(inv[3].x, inv[3].z);
 
 }
 
@@ -308,6 +415,8 @@ void onRender()
 {
 	// this global variable controls the animation
 	float time = glutGet(GLUT_ELAPSED_TIME) * 0.001f;
+
+	ProgramWater.SendUniform("t", glutGet(GLUT_ELAPSED_TIME) / 1000.f);
 
 	// clear screen and buffers
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -335,6 +444,9 @@ void onRender()
 	glutPostRedisplay();
 
 	Program.SendUniform("matrixModelView", m);
+	ProgramWater.SendUniform("matrixView", matrixView);
+	ProgramTerrain.SendUniform("matrixView", matrixView);
+
 }
 
 // called before window opened or resized - to setup the Projection Matrix
@@ -346,6 +458,8 @@ void onReshape(int w, int h)
 
 	// Setup the Projection Matrix
 	Program.SendUniform("matrixProjection", matrixProjection);
+	ProgramWater.SendUniform("matrixProjection", matrixProjection);
+	ProgramTerrain.SendUniform("matrixProjection", matrixProjection);
 }
 
 // Handle WASDQE keys

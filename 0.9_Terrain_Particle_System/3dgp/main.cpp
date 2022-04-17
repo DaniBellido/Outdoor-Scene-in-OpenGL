@@ -17,9 +17,17 @@ using namespace glm;
 bool fogOn;
 float waterLevel = 10.6f;
 
+// Particle System Params
+const float M_PI = 3.14159;
+const float PERIOD = 0.01f;
+const float LIFETIME = 6;
+const int NPARTICLES = (int)(LIFETIME / PERIOD);
+
+
 C3dglProgram Program;
 C3dglProgram ProgramWater;
 C3dglProgram ProgramTerrain;
+C3dglProgram ProgramParticle;
 C3dglProgram ProgramAnim;
 
 // 3D Models
@@ -37,7 +45,7 @@ C3dglBitmap bm_charTexColor;
 C3dglBitmap bm_charTexNormal;
 
 GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand;
-
+GLuint idBufferVelocity, idBufferStartTime;
 
 
 // camera position (for first person type camera navigation)
@@ -61,6 +69,9 @@ bool init()
 	C3dglShader WaterFragmentShader;
 	C3dglShader TerrainVertexShader;
 	C3dglShader TerrainFragmentShader;
+
+	C3dglShader ParticleVertexShader;
+	C3dglShader ParticleFragmentShader;
 
 	if (!VertexShader.Create(GL_VERTEX_SHADER))return false;
 	if (!VertexShader.LoadFromFile("basic.vert"))return false;
@@ -113,8 +124,31 @@ bool init()
 	if (!ProgramTerrain.Link()) return false;
 	if (!ProgramTerrain.Use(true)) return false;
 
+
+	if (!ParticleVertexShader.Create(GL_VERTEX_SHADER)) return false;
+	if (!ParticleVertexShader.LoadFromFile("shaders/particle.vert")) return false;
+	if (!ParticleVertexShader.Compile()) return false;
+
+	if (!ParticleFragmentShader.Create(GL_FRAGMENT_SHADER)) return false;
+	if (!ParticleFragmentShader.LoadFromFile("shaders/particle.frag")) return false;
+	if (!ParticleFragmentShader.Compile()) return false;
+
+	if (!ProgramParticle.Create()) return false;
+	if (!ProgramParticle.Attach(ParticleVertexShader)) return false;
+	if (!ProgramParticle.Attach(ParticleFragmentShader)) return false;
+	if (!ProgramParticle.Link()) return false;
+	if (!ProgramParticle.Use(true)) return false;
+
 	::glutSetVertexAttribCoord3(Program.GetAttribLocation("aVertex"));
 	::glutSetVertexAttribNormal(Program.GetAttribLocation("aNormal"));
+	//::glutSetVertexAttribCoord3(ProgramParticle.GetAttribLocation("aVertex"));
+	//::glutSetVertexAttribNormal(ProgramParticle.GetAttribLocation("aNormal"));
+
+	// Setup the particle system
+	ProgramParticle.SendUniform("initialPos", -160.0, 15.0, -220.0);
+	ProgramParticle.SendUniform("gravity", 0.0, 0.1, 0.0);
+	ProgramParticle.SendUniform("particleLifetime", LIFETIME);
+
 
 	// setup lights (for basic and terrain programs only, water does not use these lights):
 	ProgramWater.SendUniform("lightAmbient.color", 0.1, 0.1, 0.1);
@@ -273,9 +307,40 @@ bool init()
 		vec3(0.0, 1.0, 0.0)); //direction, where's the top of the object
 
 
-	// setup the screen background colour
-	glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
+	// Prepare the particle buffers
+	std::vector<float>bufferVelocity;
+	std::vector<float>bufferStartTime;
+	float time = 0;
+	for (int i = 0; i < NPARTICLES; i++)
+	{
+		float theta = (float)M_PI / 1.5f * (float)rand() / (float)RAND_MAX;
+		float phi = (float)M_PI * 2.f * (float)rand() / (float)RAND_MAX;
+		float x = sin(theta) * cos(phi);
+		float y = cos(theta);
+		float z = sin(theta) * sin(phi);
+		float v = 2 + 0.5f * (float)rand() / (float)RAND_MAX;
 
+		bufferVelocity.push_back(x * v);
+		bufferVelocity.push_back(y * v);
+		bufferVelocity.push_back(z * v);
+
+		bufferStartTime.push_back(time);
+		time += PERIOD;
+	}
+	glGenBuffers(1, &idBufferVelocity);
+	glBindBuffer(GL_ARRAY_BUFFER, idBufferVelocity);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * bufferVelocity.size(), &bufferVelocity[0],
+		GL_STATIC_DRAW);
+	glGenBuffers(1, &idBufferStartTime);
+	glBindBuffer(GL_ARRAY_BUFFER, idBufferStartTime);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * bufferStartTime.size(), &bufferStartTime[0],
+		GL_STATIC_DRAW);
+
+
+
+	// setup the screen background colour
+	//glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
+	glClearColor(1.0f, 0.0f, 0.f, 1.0f);   // blue sky background
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -311,6 +376,29 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("matrixView", matrixView); //ESSENTIAL FOR DIRECTIONAL LIGHT
 	Program.SendUniform("materialEmissive", 0.0, 0.0, 0.0); //Avoid Emissive Light from all the objects but the bulbs
 	Program.SendUniform("useNormalMap", false); //start without normal map
+
+	// RENDER THE PARTICLE SYSTEM
+	ProgramParticle.Use();
+	ProgramParticle.SendUniform("time", time);
+
+	m = matrixView;
+	//m = rotate(m, radians(90.f), vec3(0.0f, 0.0f, 1.0f));
+	//m = translate(m, vec3(-160.0, 15.0, -220.0));
+	//m = scale(m, vec3(10.0f, 10.0f, 10.0f));
+	ProgramParticle.SendUniform("matrixModelView", m);
+	
+	// render the buffer
+	glEnableVertexAttribArray(0);	// velocity
+	glEnableVertexAttribArray(1);	// start time
+	glBindBuffer(GL_ARRAY_BUFFER, idBufferVelocity);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, idBufferStartTime);
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, 0);
+	glDrawArrays(GL_POINTS, 0, NPARTICLES);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glPointSize(50);
+	
 
 	if (fogOn) 
 	{
@@ -403,6 +491,9 @@ void renderScene(mat4 &matrixView, float time)
 	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
 	player.render(m);
 	Program.SendUniform("useNormalMap", false);
+
+	
+
 	
 	// Display debug information: your current coordinates (x, z)
 // These coordinates are available as inv[3].x, inv[3].z
@@ -460,6 +551,7 @@ void onReshape(int w, int h)
 	Program.SendUniform("matrixProjection", matrixProjection);
 	ProgramWater.SendUniform("matrixProjection", matrixProjection);
 	ProgramTerrain.SendUniform("matrixProjection", matrixProjection);
+	ProgramParticle.SendUniform("matrixProjection", matrixProjection);
 }
 
 // Handle WASDQE keys

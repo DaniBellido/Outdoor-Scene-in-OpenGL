@@ -103,5 +103,11 @@
     <None Include="shaders\water.vert">
       <Filter>3dgl</Filter>
     </None>
+    <None Include="shaders\particle.vert">
+      <Filter>3dgl</Filter>
+    </None>
+    <None Include="shaders\particle.frag">
+      <Filter>3dgl</Filter>
+    </None>
   </ItemGroup>
 </Project>

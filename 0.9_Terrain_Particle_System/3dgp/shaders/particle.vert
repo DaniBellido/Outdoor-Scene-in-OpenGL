@@ -1,5 +1,8 @@
 #version 330
-
+//texture variables
+in vec2 aTexCoord;    
+out vec2 texCoord0;
+  
 //Uniforms: Transformation Matrices
 uniform mat4 matrixProjection;
 uniform mat4 matrixView;
@@ -27,5 +30,8 @@ void main()
 	// calculate position (normal calculation not applicable here)
 	vec4 position = matrixModelView * vec4(pos, 1.0);
 	gl_Position = matrixProjection * position;
-	gl_PointSize = mix(10, 100, age);
+	gl_PointSize = mix(250, 500, age);
+
+	//calculation in main() Make sure it’s at the end of the main()
+	texCoord0 = aTexCoord; 
 }

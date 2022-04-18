@@ -19,10 +19,11 @@ float waterLevel = 10.6f;
 
 // Particle System Params
 const float M_PI = 3.14159;
-const float PERIOD = 0.01f;
+const float PERIOD = 0.001f;
 const float LIFETIME = 6;
 const int NPARTICLES = (int)(LIFETIME / PERIOD);
 
+mat4 m;
 
 C3dglProgram Program;
 C3dglProgram ProgramWater;
@@ -37,14 +38,14 @@ C3dglModel test;
 C3dglModel player;
 
 //textures
-C3dglBitmap grass, bm_pebbles, bm_land;
+C3dglBitmap grass, smoke, bm_pebbles, bm_land;
 C3dglBitmap bm_terrainTexColor;
 C3dglBitmap bm_terrainTexNormal;
 
 C3dglBitmap bm_charTexColor;
 C3dglBitmap bm_charTexNormal;
 
-GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand;
+GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand, idTexSmoke;
 GLuint idBufferVelocity, idBufferStartTime;
 
 
@@ -52,6 +53,15 @@ GLuint idBufferVelocity, idBufferStartTime;
 mat4 matrixView;			// The View Matrix
 float angleTilt = 15.f;		// Tilt Angle
 vec3 cam(0);				// Camera movement values
+
+void cameraChase(float time) 
+{
+	matrixView = lookAt(
+		vec3(vec3(-202, 30, -270 + (time * 2))),
+		vec3(-202, 30, -250 + (time * 2)),
+		vec3(0.0, 1.0, 0.0));
+
+}
 
 bool init()
 {
@@ -145,8 +155,8 @@ bool init()
 	//::glutSetVertexAttribNormal(ProgramParticle.GetAttribLocation("aNormal"));
 
 	// Setup the particle system
-	ProgramParticle.SendUniform("initialPos", -160.0, 15.0, -220.0);
-	ProgramParticle.SendUniform("gravity", 0.0, 0.1, 0.0);
+	ProgramParticle.SendUniform("initialPos", 210.0, 110.0, 35.0);
+	ProgramParticle.SendUniform("gravity", -0.5, 4.0, 0.0);
 	ProgramParticle.SendUniform("particleLifetime", LIFETIME);
 
 
@@ -302,8 +312,8 @@ bool init()
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = rotate(mat4(1.f), radians(angleTilt), vec3(1.f, 0.f, 0.f));
 	matrixView *= lookAt(
-		vec3(-160.0, 10.0, -220.0), //position
-		vec3(4.0, 10.0, 30.0),  //look at
+		vec3(120.0, 70.0, -120.0), //position    posWater (-160.0, 15.0, -220.0)  posSmoke(120.0, 70.0, -120.0)
+		vec3(4.0, 70.0, 30.0),  //look at
 		vec3(0.0, 1.0, 0.0)); //direction, where's the top of the object
 
 
@@ -336,11 +346,26 @@ bool init()
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * bufferStartTime.size(), &bufferStartTime[0],
 		GL_STATIC_DRAW);
 
+	//loading SMOKE textures
+	smoke.Load("models\\TextureGrass\\smoke.bmp", GL_RGBA);
+	if (!smoke.GetBits()) return false;
+
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &idTexSmoke);
+	glBindTexture(GL_TEXTURE_2D, idTexSmoke);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, smoke.GetWidth(), smoke.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, smoke.GetBits());
+
+	// Send the texture info to the shaders
+	ProgramParticle.SendUniform("texture0", 0);
+
+
 
 
 	// setup the screen background colour
 	//glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
-	glClearColor(1.0f, 0.0f, 0.f, 1.0f);   // blue sky background
+	glClearColor(1.0f, 0.0f, 0.f, 1.0f);   // red background for testing purposes
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -372,33 +397,15 @@ void done()
 
 void renderScene(mat4 &matrixView, float time)
 {
-	mat4 m;
+	
 	Program.SendUniform("matrixView", matrixView); //ESSENTIAL FOR DIRECTIONAL LIGHT
 	Program.SendUniform("materialEmissive", 0.0, 0.0, 0.0); //Avoid Emissive Light from all the objects but the bulbs
 	Program.SendUniform("useNormalMap", false); //start without normal map
 
-	// RENDER THE PARTICLE SYSTEM
-	ProgramParticle.Use();
-	ProgramParticle.SendUniform("time", time);
-
-	m = matrixView;
-	//m = rotate(m, radians(90.f), vec3(0.0f, 0.0f, 1.0f));
-	//m = translate(m, vec3(-160.0, 15.0, -220.0));
-	//m = scale(m, vec3(10.0f, 10.0f, 10.0f));
-	ProgramParticle.SendUniform("matrixModelView", m);
 	
-	// render the buffer
-	glEnableVertexAttribArray(0);	// velocity
-	glEnableVertexAttribArray(1);	// start time
-	glBindBuffer(GL_ARRAY_BUFFER, idBufferVelocity);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, idBufferStartTime);
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, 0);
-	glDrawArrays(GL_POINTS, 0, NPARTICLES);
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glPointSize(50);
+	//cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
 	
+	Program.Use();
 
 	if (fogOn) 
 	{
@@ -437,8 +444,8 @@ void renderScene(mat4 &matrixView, float time)
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
 	Program.SendUniform("useNormalMap", true);
 
-	/*glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, idTexPeb);
+	/*glActiveTexture(GL_TEXTURE2);         ////if uncomment the green terrain texture disappears
+	glBindTexture(GL_TEXTURE_2D, idTexPeb);  ////and still not working
 	glBindTexture(GL_TEXTURE_2D, idTexLand);
 	ProgramTerrain.SendUniform("textureBed", 1);
 	ProgramTerrain.SendUniform("textureShore", 2);*/
@@ -487,14 +494,42 @@ void renderScene(mat4 &matrixView, float time)
 	glBindTexture(GL_TEXTURE_2D, idTexChar);
 	Program.SendUniform("useNormalMap", true);
 	m = matrixView;
-	m = translate(m, vec3(-202, 20, -250));
+	m = translate(m, vec3(-202 , 20, -250 + (time * 2)));
 	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
 	player.render(m);
 	Program.SendUniform("useNormalMap", false);
 
+	// RENDER THE PARTICLE SYSTEM
+	ProgramParticle.Use();
+	ProgramParticle.SendUniform("time", time);
 	
+	// particles
+	glDepthMask(GL_FALSE);				// disable depth buffer updates
+	glActiveTexture(GL_TEXTURE0);			// choose the active texture
+	glBindTexture(GL_TEXTURE_2D, idTexSmoke);	// bind the texture
+
+	m = matrixView;
+	//m = rotate(m, radians(90.f), vec3(0.0f, 0.0f, 1.0f)); //rotation displaces the particle origin
+	//m = translate(m, vec3(-160.0, 15.0, -220.0));         //this line doesn't fix the issue
+	ProgramParticle.SendUniform("matrixModelView", m);
+	// render the buffer
+	glEnableVertexAttribArray(0);	// velocity
+	glEnableVertexAttribArray(1);	// start time
+	glBindBuffer(GL_ARRAY_BUFFER, idBufferVelocity);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, idBufferStartTime);
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 0, 0);
+	glDrawArrays(GL_POINTS, 0, NPARTICLES);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glEnable(GL_POINT_SPRITE);
+	glPointSize(300);
+
+	glDepthMask(GL_TRUE);		// don't forget to switch the depth test updates back on
 
 	
+
+
 	// Display debug information: your current coordinates (x, z)
 // These coordinates are available as inv[3].x, inv[3].z
 	mat4 inv = inverse(matrixView);
@@ -559,7 +594,9 @@ void onKeyDown(unsigned char key, int x, int y)
 {
 	switch (tolower(key))
 	{
-	case 'w': cam.z = std::max(cam.z * 1.05f, 0.01f); break;
+	case 'w': //cam.z = std::max(cam.z * 1.05f, 0.01f);
+		
+		break;
 	case 's': cam.z = std::min(cam.z * 1.05f, -0.01f); break;
 	case 'a': cam.x = std::max(cam.x * 1.05f, 0.01f); break;
 	case 'd': cam.x = std::min(cam.x * 1.05f, -0.01f); break;

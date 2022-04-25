@@ -76,14 +76,6 @@ void main(void)
 	vec3 newVertex = vec3(aVertex.x, y, aVertex.z);
 	vec3 newNormal = normalize(vec3(-dx, 1, -dz));
 
-
-//	// calculate position
-//	position = matrixModelView * vec4(aVertex, 1.0);
-//	gl_Position = matrixProjection * position;
-//
-//	// calculate normal
-//	normal = normalize(mat3(matrixModelView) * aNormal);
-
 // calculate position
 	position = matrixModelView * vec4(newVertex, 1.0);
 	gl_Position = matrixProjection * position;

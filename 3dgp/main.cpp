@@ -23,6 +23,11 @@ const float PERIOD = 0.001f;
 const float LIFETIME = 6;
 const int NPARTICLES = (int)(LIFETIME / PERIOD);
 
+//input booleans
+bool bForward;
+bool bRight;
+bool bLeft;
+
 mat4 m;
 
 C3dglProgram Program;
@@ -65,6 +70,7 @@ void cameraChase(float time)
 
 bool init()
 {
+
 	// rendering states
 	glEnable(GL_DEPTH_TEST);	// depth test is necessary for most 3D scenes
 	glEnable(GL_NORMALIZE);		// normalization is needed by AssImp library models
@@ -200,6 +206,9 @@ bool init()
 	Program.SendUniform("lightEmissive.color", 1.0, 1.0, 1.0);
 
 	fogOn = false;
+	bRight = false;
+	bLeft = false;
+	bForward = false;
 
 	//fog init
 	Program.SendUniform("fogColour", 0.5f, 0.5f, 0.5f); 
@@ -291,29 +300,29 @@ bool init()
 
 	ProgramTerrain.Use();
 	// setup water multitexturing
-	glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE2);
 	glGenTextures(1, &idTexPeb);
 	glBindTexture(GL_TEXTURE_2D, idTexPeb);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_pebbles.GetWidth(), bm_pebbles.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, bm_pebbles.GetBits());
-	ProgramTerrain.SendUniform("textureBed", 1);
+	ProgramTerrain.SendUniform("textureBed", 2);
 
 	
-	glActiveTexture(GL_TEXTURE2);
+	glActiveTexture(GL_TEXTURE3);
 	glGenTextures(1, &idTexLand);
 	glBindTexture(GL_TEXTURE_2D, idTexLand);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_land.GetWidth(), bm_land.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, bm_land.GetBits());
-	ProgramTerrain.SendUniform("textureShore", 2);
+	ProgramTerrain.SendUniform("textureShore", 3);
 	
 	
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = rotate(mat4(1.f), radians(angleTilt), vec3(1.f, 0.f, 0.f));
 	matrixView *= lookAt(
-		vec3(120.0, 70.0, -120.0), //position    posWater (-160.0, 15.0, -220.0)  posSmoke(120.0, 70.0, -120.0)
-		vec3(4.0, 70.0, 30.0),  //look at
+		vec3(-160.0, 15.0, -220.0), //position    posWater (-160.0, 15.0, -220.0)  posSmoke(120.0, 70.0, -120.0)
+		vec3(4.0, 15.0, 30.0),  //look at
 		vec3(0.0, 1.0, 0.0)); //direction, where's the top of the object
 
 
@@ -403,7 +412,7 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("useNormalMap", false); //start without normal map
 
 	
-	//cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
+	cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
 	
 	Program.Use();
 
@@ -428,13 +437,7 @@ void renderScene(mat4 &matrixView, float time)
 
 	}
 
-	// render the water
-	ProgramWater.Use();
-	m = matrixView;
-	m = translate(m, vec3(0, waterLevel, -200));
-	m = scale(m, vec3(0.5f, 1.0f, 0.5f));
-	ProgramWater.SendUniform("matrixModelView", m);
-	water.render(m);
+	
 
 	ProgramTerrain.Use();
 	
@@ -444,16 +447,16 @@ void renderScene(mat4 &matrixView, float time)
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
 	Program.SendUniform("useNormalMap", true);
 
-	/*glActiveTexture(GL_TEXTURE2);         ////if uncomment the green terrain texture disappears
+	//glActiveTexture(GL_TEXTURE2);         ////if uncomment the green terrain texture disappears
 	glBindTexture(GL_TEXTURE_2D, idTexPeb);  ////and still not working
 	glBindTexture(GL_TEXTURE_2D, idTexLand);
-	ProgramTerrain.SendUniform("textureBed", 1);
-	ProgramTerrain.SendUniform("textureShore", 2);*/
+	ProgramTerrain.SendUniform("textureBed", 2);
+	ProgramTerrain.SendUniform("textureShore", 1);
 
 	// render the terrain
-	Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
-	Program.SendUniform("materialDiffuse", 0.5, 0.2, 0.0);
-	Program.SendUniform("materialSpecular", 0.7, 0.2, 0.2);
+	ProgramTerrain.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
+	ProgramTerrain.SendUniform("materialDiffuse", 0.5, 0.2, 0.0);
+	ProgramTerrain.SendUniform("materialSpecular", 0.7, 0.2, 0.2);
 	m = translate(matrixView, vec3(0, 0, 0));
 	terrain.render(m);
 	
@@ -468,7 +471,6 @@ void renderScene(mat4 &matrixView, float time)
 	m = translate(matrixView, vec3(0, -5, 0));
 	terrain2.render(m);
 
-
 	
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
 	Program.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
@@ -480,6 +482,14 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("matrixModelView", m);
 	glutSolidSphere(60, 32, 32);
 	Program.SendUniform("lightPoint.matrix", m);
+
+	// render the water
+	ProgramWater.Use();
+	m = matrixView;
+	m = translate(m, vec3(0, waterLevel, -200));
+	m = scale(m, vec3(0.5f, 1.0f, 0.5f));
+	ProgramWater.SendUniform("matrixModelView", m);
+	water.render(m);
 
 
 	//render player 
@@ -594,7 +604,7 @@ void onKeyDown(unsigned char key, int x, int y)
 {
 	switch (tolower(key))
 	{
-	case 'w': //cam.z = std::max(cam.z * 1.05f, 0.01f);
+	case 'w': cam.z = std::max(cam.z * 1.05f, 0.01f);
 		
 		break;
 	case 's': cam.z = std::min(cam.z * 1.05f, -0.01f); break;

@@ -1,5 +1,9 @@
 #version 330
 
+in vec3 aTangent;   //normal
+in vec3 aBiTangent; //normal
+out mat3 matrixTangent; //normal
+
 // Uniforms: Transformation Matrices
 uniform mat4 matrixProjection;
 uniform mat4 matrixView;
@@ -71,15 +75,26 @@ void main(void)
 	// calculate normal
 	normal = normalize(mat3(matrixModelView) * aNormal);
 
+//	// calculate texture coordinate
+//	texCoord0 = aTexCoord;
+
 	// calculate texture coordinate
-	texCoord0 = aTexCoord;
+	texCoord0 = 1 * aTexCoord; //texture
 
 	// calculate the observer's altitude above the observed vertex
 	float eyeAlt = dot(-position.xyz, mat3(matrixModelView) * vec3(0, 1, 0));
-
 
 	// calculate light
 	color = vec4(0, 0, 0, 1);
 	color += AmbientLight(lightAmbient);
 	color += DirectionalLight(lightDir);
+
+
+	vec3 aTangent = vec3(1,0,0);
+	vec3 aBiTangent = cross(aNormal, aTangent);
+	vec3 tangent = normalize(mat3(matrixModelView) * aTangent);
+	tangent = normalize(tangent - dot(tangent, normal) * normal);	// Gramm-Schmidt process
+	vec3 biTangent = normalize(mat3(matrixModelView) * aBiTangent);
+	matrixTangent = mat3(tangent, biTangent, normal);
+
 }

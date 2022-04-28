@@ -412,7 +412,7 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("useNormalMap", false); //start without normal map
 
 	
-	cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
+	//cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
 	
 	Program.Use();
 

@@ -6,7 +6,7 @@ out mat3 matrixTangent; //normal
 
 // Uniforms: Transformation Matrices
 uniform mat4 matrixProjection;
-uniform mat4 matrixView;
+
 uniform mat4 matrixModelView;
 
 // Uniforms: Material Colours
@@ -38,12 +38,7 @@ struct AMBIENT
 };
 uniform AMBIENT lightAmbient;
 
-struct DIRECTIONAL
-{	
-	vec3 direction;
-	vec3 diffuse;
-};
-uniform DIRECTIONAL lightDir;
+
 
 vec4 AmbientLight(AMBIENT light)
 {
@@ -51,16 +46,7 @@ vec4 AmbientLight(AMBIENT light)
 	return vec4(materialAmbient * light.color, 1);
 }
 
-vec4 DirectionalLight(DIRECTIONAL light)
-{
-	// Calculate Directional Light
-	vec4 color = vec4(0, 0, 0, 0);
-	vec3 L = normalize(mat3(matrixView) * light.direction);
-	float NdotL = dot(normal, L);
-	if (NdotL > 0)
-		color += vec4(materialDiffuse * light.diffuse, 1) * NdotL;
-	return color;
-}
+
 
 void main(void) 
 {
@@ -84,7 +70,7 @@ void main(void)
 	// calculate light
 	color = vec4(0, 0, 0, 1);
 	color += AmbientLight(lightAmbient);
-	color += DirectionalLight(lightDir);
+
 
 
 	vec3 aTangent = vec3(1,0,0);

@@ -58,7 +58,7 @@ GLuint idBufferVelocity, idBufferStartTime;
 
 // camera position (for first person type camera navigation)
 mat4 matrixView;			// The View Matrix
-float angleTilt = 15.f;		// Tilt Angle
+float angleTilt = 0.f;		// Tilt Angle
 vec3 cam(0);				// Camera movement values
 
 void cameraChase(float time) 
@@ -79,88 +79,76 @@ bool init()
 	glShadeModel(GL_SMOOTH);	// smooth shading mode is the default one; try GL_FLAT here!
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);	// this is the default one; try GL_LINE!
 
-	//Initialise Shaders
-	//C3dglShader AnimVertexShader;
+	//INITIALISE SHADERS:
+	//Basic Shaders
 	C3dglShader VertexShader;
 	C3dglShader FragmentShader;
+	//Water Shaders
 	C3dglShader WaterVertexShader;
 	C3dglShader WaterFragmentShader;
+	//Terrain Shaders
 	C3dglShader TerrainVertexShader;
 	C3dglShader TerrainFragmentShader;
-
+	//Particle Shaders
 	C3dglShader ParticleVertexShader;
 	C3dglShader ParticleFragmentShader;
 
+	//Load vertex and fragment Basic Shaders and create its program
 	if (!VertexShader.Create(GL_VERTEX_SHADER))return false;
 	if (!VertexShader.LoadFromFile("basic.vert"))return false;
 	if (!VertexShader.Compile())return false;
-
-	//if (!AnimVertexShader.Create(GL_VERTEX_SHADER))return false;
-	//if (!AnimVertexShader.LoadFromFile("anim.vert"))return false;
-	//if (!AnimVertexShader.Compile())return false;
-
 	if (!FragmentShader.Create(GL_FRAGMENT_SHADER))return false;
 	if (!FragmentShader.LoadFromFile("basic.frag"))return false;
 	if (!FragmentShader.Compile())return false;
-
 	if (!Program.Create())return false;
 	if (!Program.Attach(VertexShader))return false;
 	if (!Program.Attach(FragmentShader))return false;
 	if (!Program.Link())return false;
 	if (!Program.Use(true))return false;
 
-	/*if (!ProgramAnim.Create())return false;
-	if (!ProgramAnim.Attach(AnimVertexShader))return false;
-	if (!ProgramAnim.Link())return false;
-	if (!ProgramAnim.Use(true))return false;*/
-
+	//Load vertex and fragment Water Shaders and create its program
 	if (!WaterVertexShader.Create(GL_VERTEX_SHADER)) return false;
 	if (!WaterVertexShader.LoadFromFile("shaders/water.vert")) return false;
 	if (!WaterVertexShader.Compile()) return false;
-
 	if (!WaterFragmentShader.Create(GL_FRAGMENT_SHADER)) return false;
 	if (!WaterFragmentShader.LoadFromFile("shaders/water.frag")) return false;
 	if (!WaterFragmentShader.Compile()) return false;
-
 	if (!ProgramWater.Create()) return false;
 	if (!ProgramWater.Attach(WaterVertexShader)) return false;
 	if (!ProgramWater.Attach(WaterFragmentShader)) return false;
 	if (!ProgramWater.Link()) return false;
 	if (!ProgramWater.Use(true)) return false;
 
+	//Load vertex and fragment Terrain Shaders and create its program
 	if (!TerrainVertexShader.Create(GL_VERTEX_SHADER)) return false;
 	if (!TerrainVertexShader.LoadFromFile("shaders/terrain.vert")) return false;
 	if (!TerrainVertexShader.Compile()) return false;
-
 	if (!TerrainFragmentShader.Create(GL_FRAGMENT_SHADER)) return false;
 	if (!TerrainFragmentShader.LoadFromFile("shaders/terrain.frag")) return false;
 	if (!TerrainFragmentShader.Compile()) return false;
-
 	if (!ProgramTerrain.Create()) return false;
 	if (!ProgramTerrain.Attach(TerrainVertexShader)) return false;
 	if (!ProgramTerrain.Attach(TerrainFragmentShader)) return false;
 	if (!ProgramTerrain.Link()) return false;
 	if (!ProgramTerrain.Use(true)) return false;
 
-
+	//Load vertex and fragment Particle Shaders and create its program
 	if (!ParticleVertexShader.Create(GL_VERTEX_SHADER)) return false;
 	if (!ParticleVertexShader.LoadFromFile("shaders/particle.vert")) return false;
 	if (!ParticleVertexShader.Compile()) return false;
-
 	if (!ParticleFragmentShader.Create(GL_FRAGMENT_SHADER)) return false;
 	if (!ParticleFragmentShader.LoadFromFile("shaders/particle.frag")) return false;
 	if (!ParticleFragmentShader.Compile()) return false;
-
 	if (!ProgramParticle.Create()) return false;
 	if (!ProgramParticle.Attach(ParticleVertexShader)) return false;
 	if (!ProgramParticle.Attach(ParticleFragmentShader)) return false;
 	if (!ProgramParticle.Link()) return false;
 	if (!ProgramParticle.Use(true)) return false;
 
-	::glutSetVertexAttribCoord3(Program.GetAttribLocation("aVertex"));
-	::glutSetVertexAttribNormal(Program.GetAttribLocation("aNormal"));
-	//::glutSetVertexAttribCoord3(ProgramParticle.GetAttribLocation("aVertex"));
-	//::glutSetVertexAttribNormal(ProgramParticle.GetAttribLocation("aNormal"));
+	
+	::glutSetVertexAttribCoord3(Program.GetAttribLocation("aVertex")); //needed for glutSphere
+	::glutSetVertexAttribNormal(Program.GetAttribLocation("aNormal")); //needed for glutSphere
+
 
 	// Setup the particle system
 	ProgramParticle.SendUniform("initialPos", 210.0, 110.0, 35.0);
@@ -178,7 +166,7 @@ bool init()
 	ProgramWater.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
 
 	// setup lights (for basic and terrain programs only, water does not use these lights):
-	ProgramTerrain.SendUniform("lightAmbient.color", 0.5, 0.2, 0.0);
+	ProgramTerrain.SendUniform("lightAmbient.color", 0.4, 0.2, 0.0);
 	ProgramTerrain.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
 	ProgramTerrain.SendUniform("lightDir.diffuse", 1.0, 1.0, 1.0);
 
@@ -199,6 +187,13 @@ bool init()
 
 
 
+	//ProgramTerrain.SendUniform("lightPoint.position", 600.0f, 200.0f, 0.0f);
+	//ProgramTerrain.SendUniform("lightPoint.diffuse", 1.0, 1.0, 1.0);
+	//ProgramTerrain.SendUniform("lightPoint.specular", 1.0, 1.0, 1.0);
+	//ProgramTerrain.SendUniform("shininess", 13.0f);
+
+	ProgramTerrain.SendUniform("lightEmissive.color", 1.0, 1.0, 1.0);
+
 	//pointlight
 	Program.SendUniform("lightPoint.position", 600.0f, 200.0f, 0.0f);
 	Program.SendUniform("lightPoint.diffuse", 1.0, 1.0, 1.0);
@@ -208,14 +203,10 @@ bool init()
 	Program.SendUniform("lightEmissive.color", 1.0, 1.0, 1.0);
 
 	fogOn = false;
-	bRight = false;
-	bLeft = false;
-	bForward = false;
 
 	//fog init
 	Program.SendUniform("fogColour", 0.5f, 0.5f, 0.5f); 
 	Program.SendUniform("fogDensity", 0.0f);
-
 
 
 	// load Sky Box     
@@ -258,13 +249,15 @@ bool init()
 	bm_land.Load("models\\TextureGrass\\sand.png", GL_RGBA);
 	if (!bm_land.GetBits()) return false;
 
+	
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idTexGrass);
 	glBindTexture(GL_TEXTURE_2D, idTexGrass);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, grass.GetWidth(), grass.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, grass.GetBits());
-	
+	glGenerateMipmap(GL_TEXTURE_2D);
 
 	// none (simple-white) texture
 	glGenTextures(1, &idTexNone);
@@ -275,8 +268,9 @@ bool init()
 
 
 	// Send the texture info to the shaders
-	Program.SendUniform("texture0", 0);
-	Program.SendUniform("textureNormal", 1);
+	Program.SendUniform("texture0", 1);
+	Program.SendUniform("textureNormal", 0);
+	ProgramTerrain.SendUniform("textureNormal", 0);
 
 	///// NORMAL MAPPING TEXTURE/////
 	glActiveTexture(GL_TEXTURE0);
@@ -440,17 +434,11 @@ void renderScene(mat4 &matrixView, float time)
 
 	ProgramTerrain.Use();
 	
-	glActiveTexture(GL_TEXTURE1);
+	//glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, idNormalTerrain);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
-	Program.SendUniform("useNormalMap", true);
-
-	//glActiveTexture(GL_TEXTURE2);         ////if uncomment the green terrain texture disappears
-	glBindTexture(GL_TEXTURE_2D, idTexPeb);  ////and still not working
-	glBindTexture(GL_TEXTURE_2D, idTexLand);
-	ProgramTerrain.SendUniform("textureBed", 2);
-	ProgramTerrain.SendUniform("textureShore", 1);
+	ProgramTerrain.SendUniform("useNormalMap", true);
 
 	// render the terrain
 	ProgramTerrain.SendUniform("materialAmbient", 1.0, 1.0, 1.0);
@@ -459,7 +447,7 @@ void renderScene(mat4 &matrixView, float time)
 	m = translate(matrixView, vec3(0, 0, 0));
 	terrain.render(m);
 	
-	Program.SendUniform("useNormalMap", false);
+	ProgramTerrain.SendUniform("useNormalMap", false);
 
 	
 	// render the terrain2 (green grass textured)

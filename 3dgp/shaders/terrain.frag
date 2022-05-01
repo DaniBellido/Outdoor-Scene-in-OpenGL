@@ -4,7 +4,7 @@ uniform bool useNormalMap = false; //normal
 vec3 normalNew;// normal map normalV
 uniform sampler2D textureNormal; //normal
 in mat3 matrixTangent; //normal
-
+uniform mat4 matrixView;
 // Materials
 uniform vec3 materialAmbient;
 uniform vec3 materialDiffuse;
@@ -32,6 +32,23 @@ in float fogFactor;
 // Output Variable (sent down through the Pipeline)
 out vec4 outColor;
 
+struct DIRECTIONAL
+{	
+	vec3 direction;
+	vec3 diffuse;
+};
+uniform DIRECTIONAL lightDir;
+
+vec4 DirectionalLight(DIRECTIONAL light)
+{
+	// Calculate Directional Light
+	vec4 color = vec4(0, 0, 0, 0);
+	vec3 L = normalize(mat3(matrixView) * light.direction);
+	float NdotL = dot(normalNew, L);
+	if (NdotL > 0)
+		color += vec4(materialDiffuse * light.diffuse, 1) * NdotL;
+	return outColor;
+}
 
 //PointLight
 struct POINT
@@ -77,14 +94,14 @@ void main(void)
 		normalNew = normal;
 
 	outColor = color;
-
+	outColor += DirectionalLight(lightDir);
 
 	// shoreline multitexturing
 	float isAboveWater = clamp(-waterDepth, 0, 1); 
 	outColor *= mix(texture(textureBed, texCoord0), texture(textureShore, texCoord0), isAboveWater);
 
 	//underwater fog
-	//outColor = mix(vec4(waterColor, 1), outColor, fogFactor);
+	outColor = mix(vec4(waterColor, 1), outColor, fogFactor);
 	
 	
 }

@@ -84,6 +84,7 @@ void main(void)
 	normal = normalize(mat3(matrixModelView) * newNormal);
 
 
+
 	// calculate texture coordinate
 	texCoord0 = aTexCoord;
 	//calculate reflection coefficient

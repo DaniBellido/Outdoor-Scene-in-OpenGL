@@ -268,9 +268,9 @@ bool init()
 
 
 	// Send the texture info to the shaders
-	Program.SendUniform("texture0", 1);
-	Program.SendUniform("textureNormal", 0);
-	ProgramTerrain.SendUniform("textureNormal", 0);
+	Program.SendUniform("texture0", 0);
+	Program.SendUniform("textureNormal", 1);
+	ProgramTerrain.SendUniform("textureNormal", 1);
 
 	///// NORMAL MAPPING TEXTURE/////
 	glActiveTexture(GL_TEXTURE0);

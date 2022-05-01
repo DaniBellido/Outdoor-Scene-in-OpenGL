@@ -18,7 +18,7 @@ uniform float waterLevel;	// water level (in absolute units)
 
 // Output: Water Related
 out float waterDepth;	// water depth (positive for underwater, negative for the shore)
-
+out float fogFactor;
 
 
 

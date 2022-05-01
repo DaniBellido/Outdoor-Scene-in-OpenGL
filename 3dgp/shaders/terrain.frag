@@ -101,7 +101,7 @@ void main(void)
 	outColor *= mix(texture(textureBed, texCoord0), texture(textureShore, texCoord0), isAboveWater);
 
 	//underwater fog
-	outColor = mix(vec4(waterColor, 1), outColor, fogFactor);
+	//outColor = mix(vec4(waterColor, 1), outColor, fogFactor);
 	
 	
 }

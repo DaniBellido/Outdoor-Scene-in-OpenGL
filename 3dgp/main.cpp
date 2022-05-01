@@ -29,6 +29,8 @@ bool bRight;
 bool bLeft;
 
 mat4 m;
+std::vector<float> transforms;
+float x = -165.f, z = -340.f;
 
 C3dglProgram Program;
 C3dglProgram ProgramWater;
@@ -40,7 +42,7 @@ C3dglProgram ProgramAnim;
 C3dglTerrain terrain, terrain2, water;
 C3dglSkyBox skybox;
 C3dglModel test;
-C3dglModel player;
+C3dglModel player, player2;
 
 //textures
 C3dglBitmap grass, smoke, bm_pebbles, bm_land;
@@ -62,8 +64,8 @@ vec3 cam(0);				// Camera movement values
 void cameraChase(float time) 
 {
 	matrixView = lookAt(
-		vec3(vec3(-202, 30, -270 + (time * 2))),
-		vec3(-202, 30, -250 + (time * 2)),
+		vec3(vec3(-185 + (time * 2), 30, -360 + (time * 2))),
+		vec3(-165 + (time * 2), 30, -340 + (time * 2)),
 		vec3(0.0, 1.0, 0.0));
 
 }
@@ -176,7 +178,7 @@ bool init()
 	ProgramWater.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
 
 	// setup lights (for basic and terrain programs only, water does not use these lights):
-	ProgramTerrain.SendUniform("lightAmbient.color", 0.1, 0.1, 0.1);
+	ProgramTerrain.SendUniform("lightAmbient.color", 0.5, 0.2, 0.0);
 	ProgramTerrain.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
 	ProgramTerrain.SendUniform("lightDir.diffuse", 1.0, 1.0, 1.0);
 
@@ -233,6 +235,8 @@ bool init()
 
 	if (!player.load("models\\Standard Walk.dae")) return false;
 	player.loadAnimations();
+	if (!player2.load("models\\Idle.dae")) return false;
+	player2.loadAnimations();
 
 	//loading textures
 	grass.Load("models\\TextureGrass\\grass.png", GL_RGBA);
@@ -368,10 +372,7 @@ bool init()
 
 	// Send the texture info to the shaders
 	ProgramParticle.SendUniform("texture0", 0);
-
-
-
-
+	
 	// setup the screen background colour
 	//glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
 	glClearColor(1.0f, 0.0f, 0.f, 1.0f);   // red background for testing purposes
@@ -411,8 +412,6 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("materialEmissive", 0.0, 0.0, 0.0); //Avoid Emissive Light from all the objects but the bulbs
 	Program.SendUniform("useNormalMap", false); //start without normal map
 
-	
-	//cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
 	
 	Program.Use();
 
@@ -492,11 +491,11 @@ void renderScene(mat4 &matrixView, float time)
 	water.render(m);
 
 
+
+	
 	//render player 
 	// calculate and send bone transforms
-	std::vector<float> transforms;
-	player.getAnimData(0, time, transforms);
-	Program.SendUniformMatrixv("bones", (float*)&transforms[0], transforms.size() / 16);
+
 	Program.SendUniform("materialEmissive", 0.0, 0.0, 0.0);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, idNormalChar);
@@ -504,10 +503,37 @@ void renderScene(mat4 &matrixView, float time)
 	glBindTexture(GL_TEXTURE_2D, idTexChar);
 	Program.SendUniform("useNormalMap", true);
 	m = matrixView;
-	m = translate(m, vec3(-202 , 20, -250 + (time * 2)));
-	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
-	player.render(m);
+	
+	
+	if (z > -290)
+	{
+		
+		player2.getAnimData(0, time, transforms);
+		Program.SendUniformMatrixv("bones", (float*)&transforms[0], transforms.size() / 16);
+		m = translate(m, vec3(-114, 20, -290));
+		m = rotate(m, radians(45.f), vec3(0.0f, 1.0f, 0.0f));
+		m = scale(m, vec3(5.0f, 5.0f, 5.0f));
+		player2.render(m);
+
+
+	}
+	else 
+	{
+	
+		cameraChase(time); //COMMENT THIS LINE TO HAVE CONTROL OVER THE CAMERA
+		player.getAnimData(0, time, transforms);
+		Program.SendUniformMatrixv("bones", (float*)&transforms[0], transforms.size() / 16);
+		m = translate(m, vec3(x + (time * 2), 20, z=-340.f + (time * 2)));
+		m = rotate(m, radians(45.f), vec3(0.0f, 1.0f, 0.0f));
+		m = scale(m, vec3(5.0f, 5.0f, 5.0f));
+		player.render(m);
+	
+	
+	}
+	
 	Program.SendUniform("useNormalMap", false);
+
+
 
 	// RENDER THE PARTICLE SYSTEM
 	ProgramParticle.Use();
@@ -533,7 +559,7 @@ void renderScene(mat4 &matrixView, float time)
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 	glEnable(GL_POINT_SPRITE);
-	glPointSize(300);
+	glPointSize(150);
 
 	glDepthMask(GL_TRUE);		// don't forget to switch the depth test updates back on
 
@@ -619,6 +645,9 @@ void onKeyDown(unsigned char key, int x, int y)
 			//fog off
 			fogOn = false;
 			glClearColor(0.2f, 0.6f, 1.f, 1.0f);   // blue sky background
+			ProgramTerrain.SendUniform("lightAmbient.color", 0.5, 0.2, 0.0);
+			ProgramTerrain.SendUniform("materialAmbient", 1.0, 1.0, 1.0);		// full power (note: ambient light is extremely dim)
+			ProgramTerrain.SendUniform("materialDiffuse", 1.0, 1.0, 1.0);
 			break;
 		}
 		else
@@ -626,6 +655,9 @@ void onKeyDown(unsigned char key, int x, int y)
 			//fog on
 			fogOn = true;
 			glClearColor(0.5f, 0.5f, 0.5f, 1.0f);   // blue sky background
+			ProgramTerrain.SendUniform("lightAmbient.color", .4, .4, .4);
+			ProgramTerrain.SendUniform("materialAmbient", 0.0, 0.0, 0.0);		// full power (note: ambient light is extremely dim)
+			ProgramTerrain.SendUniform("materialDiffuse", 0.0, 0.0, 0.0);
 			break;
 		}
 	}

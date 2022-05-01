@@ -75,9 +75,6 @@ void main(void)
 	// calculate normal
 	normal = normalize(mat3(matrixModelView) * aNormal);
 
-//	// calculate texture coordinate
-//	texCoord0 = aTexCoord;
-
 	// calculate texture coordinate
 	texCoord0 = 1 * aTexCoord; //texture
 

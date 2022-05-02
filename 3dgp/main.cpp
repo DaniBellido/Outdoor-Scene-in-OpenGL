@@ -167,7 +167,7 @@ bool init()
 
 	// setup lights (for basic and terrain programs only, water does not use these lights):
 	ProgramTerrain.SendUniform("lightAmbient.color", 0.4, 0.2, 0.0);
-	ProgramTerrain.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
+	ProgramTerrain.SendUniform("lightDir.direction", -1.0, 0.5, -1.0);
 	ProgramTerrain.SendUniform("lightDir.diffuse", 1.0, 1.0, 1.0);
 
 	// setup materials (for basic and terrain programs only, water does not use these materials):

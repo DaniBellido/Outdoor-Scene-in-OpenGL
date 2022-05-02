@@ -45,14 +45,14 @@ C3dglModel castle;
 C3dglModel player, player2, player3;
 
 //textures
-C3dglBitmap grass, smoke, bm_pebbles, bm_land;
+C3dglBitmap grass, smoke, bm_pebbles, bm_land, bm_castle;
 C3dglBitmap bm_terrainTexColor;
 C3dglBitmap bm_terrainTexNormal;
 
 C3dglBitmap bm_charTexColor, bm_charTexColor2;
 C3dglBitmap bm_charTexNormal, bm_charTexNormal2;
 
-GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand, idTexSmoke, idTexChar2, idNormalChar2;
+GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand, idTexSmoke, idTexChar2, idNormalChar2, idCastle;
 GLuint idBufferVelocity, idBufferStartTime;
 
 
@@ -230,10 +230,20 @@ bool init()
 	player2.loadAnimations();
 	if (!player3.load("models\\Waving.dae")) return false;
 	player3.loadAnimations();
-	if (!castle.load("models\\castleMaterials\\castle.dae")) return false;
+	if (!castle.load("models\\castleMaterials\\Castle_Tower.obj")) return false;
 
 	//loading textures
-	castle.loadMaterials("models\\castleMaterials\\");
+	
+	bm_castle.Load("models\\castleMaterials\\Castle_Tower_Tex.jpg", GL_RGBA);
+	if (!bm_castle.GetBits()) return false;
+	//castle.loadMaterials("models\\castleMaterials\\");
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &idCastle);
+	glBindTexture(GL_TEXTURE_2D, idCastle);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_castle.GetWidth(), bm_castle.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_castle.GetBits());
+	glGenerateMipmap(GL_TEXTURE_2D);
 
 	grass.Load("models\\TextureGrass\\grass.png", GL_RGBA);
 	if (!grass.GetBits()) return false;
@@ -552,17 +562,21 @@ void renderScene(mat4 &matrixView, float time)
 	m = matrixView;
 	player3.getAnimData(0, time, transforms);
 	Program.SendUniformMatrixv("bones", (float*)&transforms[0], transforms.size() / 16);
-	m = translate(m, vec3(-65, 20, -202));
+	m = translate(m, vec3(-89.5, 70.5, -189.3));
 	m = rotate(m, radians(200.f), vec3(0.0f, 1.0f, 0.0f));
 	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
 	player3.render(m);
 	Program.SendUniform("useNormalMap", false);
 
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, idCastle);
 	m = matrixView;
-	m = translate(m, vec3(0.0f, 20.0f, 0.0f));
-	m = rotate(m, radians(90.f), vec3(0.0f, 1.0f, 0.0f));
-	//m = scale(m, vec3(3.1f, 3.1f, 3.1f));
+	m = translate(m, vec3(-85, 20, -180));
+	m = rotate(m, radians(135.f), vec3(0.0f, 1.0f, 0.0f));
+	m = scale(m, vec3(0.15f, 0.15f, 0.15f));
+	
 	castle.render(m);
+	//glBindTexture(GL_TEXTURE_2D, idTexNone);
 
 	// RENDER THE PARTICLE SYSTEM
 	ProgramParticle.Use();

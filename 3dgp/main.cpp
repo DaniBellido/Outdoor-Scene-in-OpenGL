@@ -41,18 +41,18 @@ C3dglProgram ProgramAnim;
 // 3D Models
 C3dglTerrain terrain, terrain2, water;
 C3dglSkyBox skybox;
-C3dglModel test;
-C3dglModel player, player2;
+C3dglModel castle;
+C3dglModel player, player2, player3;
 
 //textures
 C3dglBitmap grass, smoke, bm_pebbles, bm_land;
 C3dglBitmap bm_terrainTexColor;
 C3dglBitmap bm_terrainTexNormal;
 
-C3dglBitmap bm_charTexColor;
-C3dglBitmap bm_charTexNormal;
+C3dglBitmap bm_charTexColor, bm_charTexColor2;
+C3dglBitmap bm_charTexNormal, bm_charTexNormal2;
 
-GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand, idTexSmoke;
+GLuint idTexGrass, idTexNone, idColourTerrain, idNormalTerrain, idTexChar, idNormalChar, idTexPeb, idTexLand, idTexSmoke, idTexChar2, idNormalChar2;
 GLuint idBufferVelocity, idBufferStartTime;
 
 
@@ -228,8 +228,13 @@ bool init()
 	player.loadAnimations();
 	if (!player2.load("models\\Idle.dae")) return false;
 	player2.loadAnimations();
+	if (!player3.load("models\\Waving.dae")) return false;
+	player3.loadAnimations();
+	if (!castle.load("models\\castleMaterials\\castle.dae")) return false;
 
 	//loading textures
+	castle.loadMaterials("models\\castleMaterials\\");
+
 	grass.Load("models\\TextureGrass\\grass.png", GL_RGBA);
 	if (!grass.GetBits()) return false;
 
@@ -238,6 +243,12 @@ bool init()
 
 	bm_charTexNormal.Load("models\\textures_anim\\Guard_02__normal.png", GL_RGBA);
 	if (!bm_charTexNormal.GetBits()) return false;
+
+	bm_charTexColor2.Load("models\\textures\\Guard_03__diffuse.png", GL_RGBA);
+	if (!bm_charTexColor2.GetBits()) return false;
+
+	bm_charTexNormal2.Load("models\\textures\\Guard_03__normal.png", GL_RGBA);
+	if (!bm_charTexNormal2.GetBits()) return false;
 	
 
 	bm_terrainTexNormal.Load("models\\TextureRock\\TexturesCom_Rock_CliffVolcanic_1K_normal.png", GL_RGBA);
@@ -294,6 +305,21 @@ bool init()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_charTexColor.GetWidth(), bm_charTexColor.GetHeight(), 0, GL_RGBA,
 		GL_UNSIGNED_BYTE, bm_charTexColor.GetBits());
+
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &idNormalChar2);
+	glBindTexture(GL_TEXTURE_2D, idNormalChar2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_charTexNormal2.GetWidth(), bm_charTexNormal2.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_charTexNormal2.GetBits());
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glActiveTexture(GL_TEXTURE1);
+	glGenTextures(1, &idTexChar2);
+	glBindTexture(GL_TEXTURE_2D, idTexChar2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm_charTexColor2.GetWidth(), bm_charTexColor2.GetHeight(), 0, GL_RGBA,
+		GL_UNSIGNED_BYTE, bm_charTexColor2.GetBits());
 
 	ProgramTerrain.Use();
 	// setup water multitexturing
@@ -405,6 +431,7 @@ void renderScene(mat4 &matrixView, float time)
 	Program.SendUniform("materialEmissive", 0.0, 0.0, 0.0); //Avoid Emissive Light from all the objects but the bulbs
 	Program.SendUniform("useNormalMap", false); //start without normal map
 
+	
 	
 	Program.Use();
 
@@ -518,9 +545,24 @@ void renderScene(mat4 &matrixView, float time)
 	
 	}
 	
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, idNormalChar2);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, idTexChar2);
+	m = matrixView;
+	player3.getAnimData(0, time, transforms);
+	Program.SendUniformMatrixv("bones", (float*)&transforms[0], transforms.size() / 16);
+	m = translate(m, vec3(-65, 20, -202));
+	m = rotate(m, radians(200.f), vec3(0.0f, 1.0f, 0.0f));
+	m = scale(m, vec3(5.0f, 5.0f, 5.0f));
+	player3.render(m);
 	Program.SendUniform("useNormalMap", false);
 
-
+	m = matrixView;
+	m = translate(m, vec3(0.0f, 20.0f, 0.0f));
+	m = rotate(m, radians(90.f), vec3(0.0f, 1.0f, 0.0f));
+	//m = scale(m, vec3(3.1f, 3.1f, 3.1f));
+	castle.render(m);
 
 	// RENDER THE PARTICLE SYSTEM
 	ProgramParticle.Use();

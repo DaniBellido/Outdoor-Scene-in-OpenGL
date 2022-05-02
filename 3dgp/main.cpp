@@ -182,7 +182,7 @@ bool init()
 
 
 	Program.SendUniform("lightAmbient.color", 0.2, 0.2, 0.2);
-	Program.SendUniform("lightDir.direction", 1.0, 0.5, 1.0);
+	Program.SendUniform("lightDir.direction", -1.0, 0.5, -1.0);
 	Program.SendUniform("lightDir.diffuse", 0.2, 0.2, 0.2);	// dimmed white light
 
 

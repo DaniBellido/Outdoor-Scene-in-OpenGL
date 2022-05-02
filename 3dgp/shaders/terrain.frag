@@ -47,7 +47,7 @@ vec4 DirectionalLight(DIRECTIONAL light)
 	float NdotL = dot(normalNew, L);
 	if (NdotL > 0)
 		color += vec4(materialDiffuse * light.diffuse, 1) * NdotL;
-	return outColor;
+	return color;
 }
 
 //PointLight
@@ -77,7 +77,7 @@ vec4 PointLight(POINT light)
 	if (NdotL > 0 && RdotV > 0)
 	    outColor += vec4(materialSpecular * light.specular * pow(RdotV, shininess), 1);
 
-	return outColor;
+	return color;
 
 }
 
@@ -101,7 +101,7 @@ void main(void)
 	outColor *= mix(texture(textureBed, texCoord0), texture(textureShore, texCoord0), isAboveWater);
 
 	//underwater fog
-	//outColor = mix(vec4(waterColor, 1), outColor, fogFactor);
+	outColor = mix(vec4(waterColor, 1), outColor, fogFactor);
 	
 	
 }

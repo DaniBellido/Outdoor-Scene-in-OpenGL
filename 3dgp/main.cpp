@@ -187,10 +187,10 @@ bool init()
 
 
 
-	//ProgramTerrain.SendUniform("lightPoint.position", 600.0f, 200.0f, 0.0f);
-	//ProgramTerrain.SendUniform("lightPoint.diffuse", 1.0, 1.0, 1.0);
-	//ProgramTerrain.SendUniform("lightPoint.specular", 1.0, 1.0, 1.0);
-	//ProgramTerrain.SendUniform("shininess", 13.0f);
+	ProgramTerrain.SendUniform("lightPoint.position", 600.0f, 200.0f, 0.0f);
+	ProgramTerrain.SendUniform("lightPoint.diffuse", 1.0, 1.0, 1.0);
+	ProgramTerrain.SendUniform("lightPoint.specular", 1.0, 1.0, 1.0);
+	ProgramTerrain.SendUniform("shininess", 13.0f);
 
 	ProgramTerrain.SendUniform("lightEmissive.color", 1.0, 1.0, 1.0);
 
@@ -248,7 +248,6 @@ bool init()
 
 	bm_land.Load("models\\TextureGrass\\sand.png", GL_RGBA);
 	if (!bm_land.GetBits()) return false;
-
 	
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idTexGrass);
@@ -434,7 +433,7 @@ void renderScene(mat4 &matrixView, float time)
 
 	ProgramTerrain.Use();
 	
-	//glActiveTexture(GL_TEXTURE1);
+	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, idNormalTerrain);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, idTexNone);

@@ -66,11 +66,11 @@ void main(void)
 
 	// calculate the observer's altitude above the observed vertex
 	float eyeAlt = dot(-position.xyz, mat3(matrixModelView) * vec3(0, 1, 0));
-
+	fogFactor = exp2(-0.1 * length(position) * max(waterDepth, 0) / eyeAlt);
 	// calculate light
 	color = vec4(0, 0, 0, 1);
 	color += AmbientLight(lightAmbient);
-
+	
 
 
 	vec3 aTangent = vec3(1,0,0);
